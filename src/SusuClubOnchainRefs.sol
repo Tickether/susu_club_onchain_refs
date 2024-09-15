@@ -17,6 +17,7 @@ contract SusuClubOnchainRefs is Ownable {
     
 
     function claimInvite(address referrer, address invited) external onlyOwner{
+        require(referrer != invited, "Invite Paradox");
         require(referrerOf[invited] == address(0), "Invite already claimed");
         referrerOf[invited] = referrer;
         invitesClaimedFrom[referrer].push(invited);
