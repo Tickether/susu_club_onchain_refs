@@ -11,6 +11,10 @@ import { IERC20 } from "https://github.com/OpenZeppelin/openzeppelin-contracts/b
 /// @author Geeloko
 
 contract SusuClubOnchainRefs is Ownable {
+
+    event InviteBonusClaimed(address indexed referrer, address[] indexed invitees, uint256 totalAmount);
+    event MemberBonusClaimed(address indexed member, address indexed referrer, uint256 bonusAmount);
+
     IERC20 public USDC = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913); // ERC-20 token contract
     uint256 public inviteBonusAmount = 1 * 10**6; // Define the bonus amount in tokens (adjust as needed)
     uint256 public memberBonusAmount = 2 * 10**6;
@@ -26,15 +30,13 @@ contract SusuClubOnchainRefs is Ownable {
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
-    struct Invited {
-        address walletAddress;
-        bool rewarded;
-    }
+   
     
     
-    mapping(address => Invited) public invited;
-    mapping(address => address) public referrerOf;
+    mapping(address => bool) public inviteRewarded;
     mapping(address => bool) public memberRewarded;
+
+    mapping(address => address) public referrerOf;
     mapping(address => address[]) public invitesClaimedFrom;
 
     
@@ -53,12 +55,7 @@ contract SusuClubOnchainRefs is Ownable {
         require(referrer != invitee, "Invite Paradox");
         require(referrerOf[invitee] == address(0), "Invite already claimed");
         referrerOf[invitee] = referrer;
-        Invited memory newInvitee = Invited({
-            walletAddress: invitee,
-            rewarded: false // Assuming default values
-        });
         invitesClaimedFrom[referrer].push(invitee);
-        invited[invitee] = newInvitee;
     }
 
     
@@ -67,18 +64,9 @@ contract SusuClubOnchainRefs is Ownable {
     }
 
 
-    function updateInviteRewarded(
-        address invitee
-    ) external onlyOwner {
-        // Check if the invitee exists in the invited mapping
-        require(invited[invitee].walletAddress != address(0), "Invitee not found");
-        
-        // Update the `invited` mapping
-        invited[invitee].rewarded = true;
-    }
-
     function claimInviteBonus(address[] calldata invitees) external onlyOwner {
         require(invitees.length > 0, "No invitees provided");
+         require(invitees.length <= 100, "Exceeds max claims per transaction");
         require(inviteClaims + invitees.length <= MAX_INVITE_CLAIMS, "max claim reached");
 
         // Get the referrer of the first invitee
@@ -97,7 +85,7 @@ contract SusuClubOnchainRefs is Ownable {
             
 
             // Check if invitee has already claimed the reward
-            require(!invited[invitee].rewarded, "Bonus already claimed");
+            require(!inviteRewarded[invitee], "Bonus already claimed");
 
         }
         // Second loop: Update state and perform transfer
@@ -105,7 +93,7 @@ contract SusuClubOnchainRefs is Ownable {
             address invitee = invitees[i];
             
             // Mark each invitee as rewarded
-            invited[invitee].rewarded = true;
+            inviteRewarded[invitee] = true;
         }
         inviteClaims += invitees.length;
 
@@ -142,9 +130,11 @@ contract SusuClubOnchainRefs is Ownable {
 
             USDC.transfer(member, memberBonusAmount);
         }
+        // Emit event after successful member bonus claim
+        emit MemberBonusClaimed(member, referrerOf[member], memberBonusAmount);
     }
 
-    function ownerWithdraw() external onlyOwner {
+    function recoverTokens() external onlyOwner {
     
         uint256 contractBalance = USDC.balanceOf(address(this));
 
