@@ -66,7 +66,7 @@ contract SusuClubOnchainRefs is Ownable {
 
     function claimInviteBonus(address[] calldata invitees) external onlyOwner {
         require(invitees.length > 0, "No invitees provided");
-         require(invitees.length <= 100, "Exceeds max claims per transaction");
+        require(invitees.length <= 100, "Exceeds max claims per transaction");
         require(inviteClaims + invitees.length <= MAX_INVITE_CLAIMS, "max claim reached");
 
         // Get the referrer of the first invitee
@@ -100,6 +100,9 @@ contract SusuClubOnchainRefs is Ownable {
         // Transfer the total reward amount to the referrer in one go
         USDC.transfer(referrer, totalRequired);
         
+        // Emit event after successful invite bonus claim
+        emit InviteBonusClaimed(referrer, invitees, totalRequired);
+        
     }
 
 
@@ -119,6 +122,8 @@ contract SusuClubOnchainRefs is Ownable {
             memberClaims += 1;
 
             USDC.transfer(member, memberBonusAmount + inviteBonusAmount);
+            // Emit event after successful member bonus claim
+            emit MemberBonusClaimed(member, referrerOf[member], memberBonusAmount + inviteBonusAmount);
         }
         if (referrer == address(0)) {
             // Check if the contract has enough token balance to pay the bonus
@@ -129,9 +134,9 @@ contract SusuClubOnchainRefs is Ownable {
             memberClaims += 1;
 
             USDC.transfer(member, memberBonusAmount);
+            // Emit event after successful member bonus claim
+            emit MemberBonusClaimed(member, referrerOf[member], memberBonusAmount);
         }
-        // Emit event after successful member bonus claim
-        emit MemberBonusClaimed(member, referrerOf[member], memberBonusAmount);
     }
 
     function recoverTokens() external onlyOwner {
